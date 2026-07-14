@@ -104,7 +104,7 @@ export function ChatInterface({ selectedDocumentIds }: Props) {
             className="flex-1 resize-none rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             style={{ minHeight: '44px', maxHeight: '140px' }}
           />
-          <button onClick={handleSubmit} disabled={!input.trim() || isLoading}
+          <button onClick={handleSubmit} disabled={!input.trim() || isLoading} aria-label="Send message"
             className="h-11 w-11 rounded-xl bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0">
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
