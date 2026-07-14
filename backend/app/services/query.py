@@ -2,7 +2,7 @@ import uuid
 from typing import AsyncGenerator
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from sqlalchemy import select, text
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.document import DocumentChunk
@@ -15,6 +15,13 @@ Be concise, accurate, and cite which sections support your answer.
 Context:
 {context}
 """
+
+
+class SourcesEvent:
+    """Wraps the retrieved chunks so the router can distinguish them from answer tokens in the stream."""
+
+    def __init__(self, chunks: list[DocumentChunk]):
+        self.chunks = chunks
 
 
 class QueryService:
@@ -30,9 +37,10 @@ class QueryService:
             streaming=True,
         )
 
-    async def query(self, question: str, document_ids: list[uuid.UUID] | None, db: AsyncSession) -> AsyncGenerator[str, None]:
+    async def query(self, question: str, document_ids: list[uuid.UUID] | None, db: AsyncSession) -> AsyncGenerator[str | SourcesEvent, None]:
         query_vector = await self.embeddings.aembed_query(question)
         chunks = await self._similarity_search(query_vector, document_ids, db)
+        yield SourcesEvent(chunks)
 
         if not chunks:
             yield "I couldn't find relevant information in the uploaded documents."
@@ -55,12 +63,9 @@ class QueryService:
     async def _similarity_search(self, query_vector, document_ids, db, top_k=None):
         top_k = top_k or settings.RETRIEVER_TOP_K
         vector_str = f"[{','.join(str(v) for v in query_vector)}]"
+        params = {"vector": vector_str, "top_k": top_k}
 
-        if document_ids:
-            ids_str = ",".join(f"'{str(d)}'" for d in document_ids)
-            where_clause = f"AND document_id IN ({ids_str})"
-        else:
-            where_clause = ""
+        where_clause = "AND document_id IN :ids" if document_ids else ""
 
         sql = text(f"""
             SELECT id FROM document_chunks
@@ -69,8 +74,11 @@ class QueryService:
             ORDER BY embedding <=> :vector::vector
             LIMIT :top_k
         """)
+        if document_ids:
+            sql = sql.bindparams(bindparam("ids", expanding=True))
+            params["ids"] = list(document_ids)
 
-        result = await db.execute(sql, {"vector": vector_str, "top_k": top_k})
+        result = await db.execute(sql, params)
         chunk_ids = [row[0] for row in result.fetchall()]
         if not chunk_ids:
             return []

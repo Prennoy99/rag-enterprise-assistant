@@ -1,6 +1,9 @@
+import io
 import os
 import uuid
+import zipfile
 from pathlib import Path
+import magic
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,15 +22,37 @@ ALLOWED_MIME_TYPES = {
     "text/plain",
 }
 
+UPLOAD_READ_CHUNK_SIZE = 1024 * 1024
+DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def _detect_mime(content: bytes, filename: str) -> str:
+    detected = magic.from_buffer(content, mime=True)
+    # libmagic often reports .docx (a zip container) as generic application/zip; confirm via its internal structure.
+    if detected == "application/zip" and filename.lower().endswith(".docx"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                if "word/document.xml" in zf.namelist():
+                    return DOCX_MIME_TYPE
+        except zipfile.BadZipFile:
+            pass
+    return detected
+
 
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    if file.content_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
+    max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
+    content = bytearray()
+    while chunk := await file.read(UPLOAD_READ_CHUNK_SIZE):
+        content.extend(chunk)
+        if len(content) > max_bytes:
+            raise HTTPException(status_code=400, detail=f"File too large. Max: {settings.MAX_FILE_SIZE_MB}MB")
+    content = bytes(content)
 
-    content = await file.read()
-    if len(content) / (1024 * 1024) > settings.MAX_FILE_SIZE_MB:
-        raise HTTPException(status_code=400, detail=f"File too large. Max: {settings.MAX_FILE_SIZE_MB}MB")
+    # Trust the sniffed content type, not the client-supplied header, which is trivially spoofable.
+    detected_mime = _detect_mime(content, file.filename)
+    if detected_mime not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {detected_mime}")
 
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(exist_ok=True)
@@ -41,7 +66,7 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         filename=saved_filename,
         original_filename=file.filename,
         file_size=len(content),
-        mime_type=file.content_type,
+        mime_type=detected_mime,
         status="processing",
     )
     db.add(doc)
@@ -51,7 +76,6 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         ingestion_service.ingest_document,
         document_id=doc.id,
         file_path=str(file_path),
-        db=db,
     )
     return doc
 

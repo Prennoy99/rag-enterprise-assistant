@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
 
+    API_KEY: str
+
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
     RETRIEVER_TOP_K: int = 5

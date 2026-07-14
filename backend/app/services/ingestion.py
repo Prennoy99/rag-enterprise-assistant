@@ -4,8 +4,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
+from app.core.database import AsyncSessionLocal
 from app.models.document import Document, DocumentChunk
 
 
@@ -21,37 +21,39 @@ class IngestionService:
             separators=["\n\n", "\n", ". ", " ", ""],
         )
 
-    async def ingest_document(self, document_id: uuid.UUID, file_path: str, db: AsyncSession) -> None:
-        try:
-            raw_docs = self._load_file(file_path)
-            full_text = "\n\n".join(doc.page_content for doc in raw_docs)
-            chunks = self.text_splitter.split_text(full_text)
-            vectors = await self.embeddings.aembed_documents(chunks)
+    async def ingest_document(self, document_id: uuid.UUID, file_path: str) -> None:
+        async with AsyncSessionLocal() as db:
+            try:
+                raw_docs = self._load_file(file_path)
+                full_text = "\n\n".join(doc.page_content for doc in raw_docs)
+                chunks = self.text_splitter.split_text(full_text)
+                vectors = await self.embeddings.aembed_documents(chunks)
 
-            chunk_objects = [
-                DocumentChunk(
-                    document_id=document_id,
-                    content=chunk,
-                    chunk_index=i,
-                    embedding=vector,
-                )
-                for i, (chunk, vector) in enumerate(zip(chunks, vectors))
-            ]
-            db.add_all(chunk_objects)
+                chunk_objects = [
+                    DocumentChunk(
+                        document_id=document_id,
+                        content=chunk,
+                        chunk_index=i,
+                        embedding=vector,
+                    )
+                    for i, (chunk, vector) in enumerate(zip(chunks, vectors))
+                ]
+                db.add_all(chunk_objects)
 
-            result = await db.execute(select(Document).where(Document.id == document_id))
-            doc = result.scalar_one()
-            doc.status = "ready"
-            doc.chunk_count = len(chunks)
-            await db.commit()
-
-        except Exception as e:
-            result = await db.execute(select(Document).where(Document.id == document_id))
-            doc = result.scalar_one_or_none()
-            if doc:
-                doc.status = "failed"
+                result = await db.execute(select(Document).where(Document.id == document_id))
+                doc = result.scalar_one()
+                doc.status = "ready"
+                doc.chunk_count = len(chunks)
                 await db.commit()
-            raise e
+
+            except Exception as e:
+                await db.rollback()
+                result = await db.execute(select(Document).where(Document.id == document_id))
+                doc = result.scalar_one_or_none()
+                if doc:
+                    doc.status = "failed"
+                    await db.commit()
+                raise e
 
     def _load_file(self, file_path: str):
         ext = Path(file_path).suffix.lower()

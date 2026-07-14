@@ -1,8 +1,13 @@
 import axios from 'axios'
-import type { Document, QueryRequest } from '../types'
+import type { Document, QueryRequest, SourceChunk } from '../types'
+
+export type QueryStreamEvent =
+  | { type: 'token'; content: string }
+  | { type: 'sources'; sources: SourceChunk[] }
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
-const api = axios.create({ baseURL: `${API_BASE}/api/v1` })
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+const api = axios.create({ baseURL: `${API_BASE}/api/v1`, headers: { 'X-API-Key': API_KEY } })
 
 export const documentsApi = {
   list: async (): Promise<{ documents: Document[]; total: number }> => {
@@ -27,27 +32,34 @@ export const documentsApi = {
   },
 }
 
-export async function* streamQuery(request: QueryRequest): AsyncGenerator<string, void, unknown> {
+export async function* streamQuery(request: QueryRequest): AsyncGenerator<QueryStreamEvent, void, unknown> {
   const response = await fetch(`${API_BASE}/api/v1/query/stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
     body: JSON.stringify(request),
   })
   if (!response.ok || !response.body) throw new Error(`Query failed: ${response.statusText}`)
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
+  let buffer = ''
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    const lines = decoder.decode(value, { stream: true }).split('\n')
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
     for (const line of lines) {
       if (line.startsWith('data: ')) {
-        const token = line.slice(6)
-        if (token === '[DONE]') return
-        if (token.startsWith('[ERROR]')) throw new Error(token.slice(8))
-        yield token
+        const payload = line.slice(6)
+        if (payload === '[DONE]') return
+        if (payload.startsWith('[ERROR]')) throw new Error(payload.slice(8))
+        if (payload.startsWith('[SOURCES] ')) {
+          yield { type: 'sources', sources: JSON.parse(payload.slice(10)) }
+          continue
+        }
+        yield { type: 'token', content: payload }
       }
     }
   }

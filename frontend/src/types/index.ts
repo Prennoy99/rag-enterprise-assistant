@@ -15,9 +15,16 @@ export interface ChatMessage {
   content: string
   timestamp: Date
   isStreaming?: boolean
+  sources?: SourceChunk[]
 }
 
 export interface QueryRequest {
   question: string
   document_ids?: string[] | null
+}
+
+export interface SourceChunk {
+  document_id: string
+  chunk_index: number
+  content: string
 }

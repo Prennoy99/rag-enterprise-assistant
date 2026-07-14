@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Send, Bot, User, Loader2 } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText } from 'lucide-react'
 import { streamQuery } from '../services/api'
 import type { ChatMessage } from '../types'
 
@@ -29,11 +29,15 @@ export function ChatInterface({ selectedDocumentIds }: Props) {
 
     try {
       let fullContent = ''
-      for await (const token of streamQuery({
+      for await (const event of streamQuery({
         question,
         document_ids: selectedDocumentIds.length > 0 ? selectedDocumentIds : null,
       })) {
-        fullContent += token
+        if (event.type === 'sources') {
+          setMessages(prev => prev.map(m => m.id === assistantMsg.id ? { ...m, sources: event.sources } : m))
+          continue
+        }
+        fullContent += event.content
         setMessages(prev => prev.map(m => m.id === assistantMsg.id ? { ...m, content: fullContent } : m))
       }
       setMessages(prev => prev.map(m => m.id === assistantMsg.id ? { ...m, isStreaming: false } : m))
@@ -68,6 +72,21 @@ export function ChatInterface({ selectedDocumentIds }: Props) {
                 <div className="prose prose-sm max-w-none">
                   <ReactMarkdown>{msg.content || ' '}</ReactMarkdown>
                   {msg.isStreaming && <span className="inline-block w-1.5 h-4 bg-gray-500 animate-pulse ml-0.5" />}
+                  {!msg.isStreaming && msg.sources && msg.sources.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 not-prose space-y-1.5">
+                      <p className="text-xs font-medium text-gray-400 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Sources
+                      </p>
+                      {msg.sources.map((s, i) => (
+                        <details key={`${s.document_id}-${s.chunk_index}-${i}`} className="text-xs text-gray-500">
+                          <summary className="cursor-pointer hover:text-gray-700">
+                            Chunk {s.chunk_index} · doc {s.document_id.slice(0, 8)}
+                          </summary>
+                          <p className="mt-1 pl-3 border-l-2 border-gray-200 text-gray-500 whitespace-pre-wrap">{s.content}</p>
+                        </details>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : <p>{msg.content}</p>}
             </div>
