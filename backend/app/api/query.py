@@ -1,10 +1,12 @@
 import json
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.schemas import QueryRequest, SourceChunk
 from app.core.database import get_db
 from app.services.query import QueryService, SourcesEvent
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/query", tags=["query"])
 query_service = QueryService()

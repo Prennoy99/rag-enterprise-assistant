@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+
 from app.api.documents import router as documents_router
 from app.api.query import router as query_router
 from app.core.security import verify_api_key

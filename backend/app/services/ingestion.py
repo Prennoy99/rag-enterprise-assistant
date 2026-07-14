@@ -1,9 +1,11 @@
 import uuid
 from pathlib import Path
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import select
+
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models.document import Document, DocumentChunk

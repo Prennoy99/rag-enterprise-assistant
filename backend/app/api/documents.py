@@ -3,10 +3,12 @@ import os
 import uuid
 import zipfile
 from pathlib import Path
+
 import magic
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.schemas import DocumentListResponse, DocumentResponse
 from app.core.config import settings
 from app.core.database import get_db
@@ -40,7 +42,11 @@ def _detect_mime(content: bytes, filename: str) -> str:
 
 
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
-async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
     max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
     content = bytearray()
     while chunk := await file.read(UPLOAD_READ_CHUNK_SIZE):

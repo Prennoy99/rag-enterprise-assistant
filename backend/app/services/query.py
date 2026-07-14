@@ -1,9 +1,11 @@
 import uuid
 from typing import AsyncGenerator
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from sqlalchemy import bindparam, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
 from app.models.document import DocumentChunk
 
@@ -37,7 +39,9 @@ class QueryService:
             streaming=True,
         )
 
-    async def query(self, question: str, document_ids: list[uuid.UUID] | None, db: AsyncSession) -> AsyncGenerator[str | SourcesEvent, None]:
+    async def query(
+        self, question: str, document_ids: list[uuid.UUID] | None, db: AsyncSession
+    ) -> AsyncGenerator[str | SourcesEvent, None]:
         query_vector = await self.embeddings.aembed_query(question)
         chunks = await self._similarity_search(query_vector, document_ids, db)
         yield SourcesEvent(chunks)

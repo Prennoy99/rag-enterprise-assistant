@@ -35,6 +35,7 @@ describe('ChatInterface', () => {
   it('shows an error message when the stream throws', async () => {
     const user = userEvent.setup()
     vi.mocked(streamQuery).mockImplementation(async function* () {
+      if (Math.random() < 0) yield { type: 'token', content: '' } // unreachable; satisfies generator typing
       throw new Error('Query failed: 500')
     })
 
