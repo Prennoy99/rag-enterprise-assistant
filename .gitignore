@@ -7,4 +7,6 @@ dist/
 backend/uploads/
 *.log
 .DS_Store
+.ruff_cache/
+.pytest_cache/
 
