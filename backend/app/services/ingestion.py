@@ -11,12 +11,27 @@ from app.core.database import AsyncSessionLocal
 from app.models.document import Document, DocumentChunk
 
 
+def _build_embeddings():
+    # TEMPORARY (branch experiment/gemini-temp): swap provider without touching the
+    # vector(1536) column - gemini-embedding-001 supports a configurable output size.
+    if settings.LLM_PROVIDER == "gemini":
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+        return GoogleGenerativeAIEmbeddings(
+            model=settings.GEMINI_EMBEDDING_MODEL,
+            google_api_key=settings.GOOGLE_API_KEY,
+            output_dimensionality=settings.GEMINI_EMBEDDING_DIMENSIONS,
+            task_type="RETRIEVAL_DOCUMENT",
+        )
+    return OpenAIEmbeddings(
+        model=settings.OPENAI_EMBEDDING_MODEL,
+        openai_api_key=settings.OPENAI_API_KEY,
+    )
+
+
 class IngestionService:
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(
-            model=settings.OPENAI_EMBEDDING_MODEL,
-            openai_api_key=settings.OPENAI_API_KEY,
-        )
+        self.embeddings = _build_embeddings()
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
