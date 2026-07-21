@@ -24,6 +24,7 @@ from ragas import evaluate
 from ragas.embeddings import LangchainEmbeddingsWrapper
 from ragas.llms import LangchainLLMWrapper
 from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
+from ragas.run_config import RunConfig
 
 from qa_dataset import QA_PAIRS
 
@@ -38,6 +39,10 @@ LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openai")
 SAMPLE_DOCS_DIR = Path(__file__).parent / "sample_docs"
 UPLOAD_TIMEOUT_S = 60
 RESULTS_PATH = Path(__file__).parent / "results.json"
+# Gemini free tier caps at 15 requests/minute; RAGAS's default of 16 concurrent judge-LLM
+# calls blows straight through that, so throttle hard when the judge is Gemini. OpenAI
+# paid tiers have much higher RPM, so leave RAGAS's default concurrency there.
+EVAL_MAX_WORKERS = int(os.environ.get("EVAL_MAX_WORKERS", "1" if LLM_PROVIDER == "gemini" else "16"))
 
 HEADERS = {"X-API-Key": API_KEY}
 
@@ -181,7 +186,7 @@ def main():
         for doc_id in doc_ids:
             client.delete(f"{API_BASE_URL}/api/v1/documents/{doc_id}", headers=HEADERS)
 
-    print("Scoring with RAGAS (this makes real LLM calls)...")
+    print(f"Scoring with RAGAS (this makes real LLM calls, max_workers={EVAL_MAX_WORKERS})...")
     judge_llm, judge_embeddings = build_judge()
     dataset = Dataset.from_list(rows)
     result = evaluate(
@@ -189,6 +194,7 @@ def main():
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
         llm=judge_llm,
         embeddings=judge_embeddings,
+        run_config=RunConfig(max_workers=EVAL_MAX_WORKERS, max_wait=90, max_retries=15),
     )
 
     df = result.to_pandas()
