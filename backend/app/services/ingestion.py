@@ -12,8 +12,6 @@ from app.models.document import Document, DocumentChunk
 
 
 def _build_embeddings():
-    # TEMPORARY (branch experiment/gemini-temp): swap provider without touching the
-    # vector(1536) column - gemini-embedding-001 supports a configurable output size.
     if settings.LLM_PROVIDER == "gemini":
         from app.services.gemini_utils import TruncatedGeminiEmbeddings
 

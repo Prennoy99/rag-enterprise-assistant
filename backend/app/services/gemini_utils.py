@@ -1,4 +1,3 @@
-"""TEMPORARY (branch experiment/gemini-temp only) - not meant to reach main."""
 import math
 
 

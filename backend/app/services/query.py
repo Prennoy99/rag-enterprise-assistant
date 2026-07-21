@@ -35,9 +35,8 @@ class SourcesEvent:
 
 
 def _build_embeddings():
-    # TEMPORARY (branch experiment/gemini-temp): mirrors ingestion.py's provider swap.
-    # RETRIEVAL_QUERY vs. ingestion's RETRIEVAL_DOCUMENT is Gemini's asymmetric embedding
-    # optimization for search - OpenAI has no equivalent, so it's a no-op on that path.
+    # RETRIEVAL_QUERY vs. ingestion.py's RETRIEVAL_DOCUMENT is Gemini's asymmetric
+    # embedding optimization for search - OpenAI has no equivalent, so it's a no-op there.
     if settings.LLM_PROVIDER == "gemini":
         from app.services.gemini_utils import TruncatedGeminiEmbeddings
 
