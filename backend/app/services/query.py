@@ -138,7 +138,7 @@ class QueryService:
             SELECT id FROM document_chunks
             WHERE embedding IS NOT NULL
             {where_clause}
-            ORDER BY embedding <=> :vector::vector
+            ORDER BY embedding <=> CAST(:vector AS vector)
             LIMIT :top_k
         """)
         if document_ids:
