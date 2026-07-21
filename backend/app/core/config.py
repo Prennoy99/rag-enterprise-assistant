@@ -17,6 +17,18 @@ class Settings(BaseSettings):
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
 
+    # TEMPORARY (branch experiment/gemini-temp only): lets embeddings/chat run against
+    # Gemini instead of OpenAI while the OpenAI test key is out of quota. Must not reach
+    # main - default stays "openai" so this is a no-op if ever merged by mistake.
+    LLM_PROVIDER: str = "openai"
+    GOOGLE_API_KEY: str | None = None
+    GEMINI_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
+    GEMINI_EMBEDDING_DIMENSIONS: int = 1536  # matches the existing vector(1536) column - no migration needed
+    # gemini-2.0-flash has 0 free-tier quota on this account; gemini-3.1-flash-lite
+    # has by far the most generous free allowance of the models actually offered
+    # (confirmed via aistudio.google.com/rate-limit: 15 RPM / 500 RPD).
+    GEMINI_CHAT_MODEL: str = "gemini-3.1-flash-lite"
+
     API_KEY: str
 
     CHUNK_SIZE: int = 1000

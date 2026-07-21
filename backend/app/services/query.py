@@ -34,18 +34,46 @@ class SourcesEvent:
         self.chunks = chunks
 
 
+def _build_embeddings():
+    # TEMPORARY (branch experiment/gemini-temp): mirrors ingestion.py's provider swap.
+    # RETRIEVAL_QUERY vs. ingestion's RETRIEVAL_DOCUMENT is Gemini's asymmetric embedding
+    # optimization for search - OpenAI has no equivalent, so it's a no-op on that path.
+    if settings.LLM_PROVIDER == "gemini":
+        from app.services.gemini_utils import TruncatedGeminiEmbeddings
+
+        return TruncatedGeminiEmbeddings(
+            dimensions=settings.GEMINI_EMBEDDING_DIMENSIONS,
+            model=settings.GEMINI_EMBEDDING_MODEL,
+            google_api_key=settings.GOOGLE_API_KEY,
+            task_type="RETRIEVAL_QUERY",
+        )
+    return OpenAIEmbeddings(
+        model=settings.OPENAI_EMBEDDING_MODEL,
+        openai_api_key=settings.OPENAI_API_KEY,
+    )
+
+
+def _build_llm():
+    if settings.LLM_PROVIDER == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        return ChatGoogleGenerativeAI(
+            model=settings.GEMINI_CHAT_MODEL,
+            google_api_key=settings.GOOGLE_API_KEY,
+            temperature=0.1,
+        )
+    return ChatOpenAI(
+        model=settings.OPENAI_CHAT_MODEL,
+        openai_api_key=settings.OPENAI_API_KEY,
+        temperature=0.1,
+        streaming=True,
+    )
+
+
 class QueryService:
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(
-            model=settings.OPENAI_EMBEDDING_MODEL,
-            openai_api_key=settings.OPENAI_API_KEY,
-        )
-        self.llm = ChatOpenAI(
-            model=settings.OPENAI_CHAT_MODEL,
-            openai_api_key=settings.OPENAI_API_KEY,
-            temperature=0.1,
-            streaming=True,
-        )
+        self.embeddings = _build_embeddings()
+        self.llm = _build_llm()
 
     async def query(
         self, question: str, document_ids: list[uuid.UUID] | None, db: AsyncSession
