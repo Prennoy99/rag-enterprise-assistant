@@ -15,12 +15,12 @@ def _build_embeddings():
     # TEMPORARY (branch experiment/gemini-temp): swap provider without touching the
     # vector(1536) column - gemini-embedding-001 supports a configurable output size.
     if settings.LLM_PROVIDER == "gemini":
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from app.services.gemini_utils import TruncatedGeminiEmbeddings
 
-        return GoogleGenerativeAIEmbeddings(
+        return TruncatedGeminiEmbeddings(
+            dimensions=settings.GEMINI_EMBEDDING_DIMENSIONS,
             model=settings.GEMINI_EMBEDDING_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
-            output_dimensionality=settings.GEMINI_EMBEDDING_DIMENSIONS,
             task_type="RETRIEVAL_DOCUMENT",
         )
     return OpenAIEmbeddings(

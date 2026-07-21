@@ -39,12 +39,12 @@ def _build_embeddings():
     # RETRIEVAL_QUERY vs. ingestion's RETRIEVAL_DOCUMENT is Gemini's asymmetric embedding
     # optimization for search - OpenAI has no equivalent, so it's a no-op on that path.
     if settings.LLM_PROVIDER == "gemini":
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from app.services.gemini_utils import TruncatedGeminiEmbeddings
 
-        return GoogleGenerativeAIEmbeddings(
+        return TruncatedGeminiEmbeddings(
+            dimensions=settings.GEMINI_EMBEDDING_DIMENSIONS,
             model=settings.GEMINI_EMBEDDING_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
-            output_dimensionality=settings.GEMINI_EMBEDDING_DIMENSIONS,
             task_type="RETRIEVAL_QUERY",
         )
     return OpenAIEmbeddings(
