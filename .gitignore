@@ -9,4 +9,5 @@ backend/uploads/
 .DS_Store
 .ruff_cache/
 .pytest_cache/
+eval/results.json
 

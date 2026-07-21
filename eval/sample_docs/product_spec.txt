@@ -1,0 +1,24 @@
+TaskFlow API — Product Specification v2.3
+
+1. Overview
+TaskFlow is a REST API for managing tasks and projects. It exposes endpoints for creating projects, tasks, and comments, with webhook support for real-time updates.
+
+2. Authentication
+All requests require a Bearer token in the Authorization header. Tokens are issued via OAuth 2.0 client credentials flow and expire after 24 hours. Refresh tokens are valid for 30 days.
+
+3. Rate Limits
+The Free tier allows 100 requests per minute. The Pro tier allows 1,000 requests per minute. Requests exceeding the limit receive a 429 status code with a Retry-After header indicating the number of seconds to wait.
+
+4. Core Endpoints
+- POST /projects creates a new project and returns a project ID.
+- GET /projects/{id}/tasks lists all tasks in a project, paginated at 50 items per page.
+- POST /tasks/{id}/comments adds a comment to a task and triggers a webhook event if configured.
+
+5. Webhooks
+Webhooks are configured per-project and support three event types: task.created, task.completed, and comment.added. Webhook payloads are signed with HMAC-SHA256 using a per-project secret, delivered with a 10-second timeout and up to 3 retries on failure.
+
+6. Data Retention
+Deleted projects are retained in a recoverable state for 14 days before permanent deletion. Task history and comments are retained for 2 years for audit purposes, after which they are automatically purged.
+
+7. SLA
+The Pro tier includes a 99.9% uptime SLA measured monthly. Service credits of 10% of the monthly fee are issued for each 0.1% below the SLA threshold, up to a maximum of 50% credit in a single month.

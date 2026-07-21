@@ -1,0 +1,23 @@
+Acme Robotics — Remote Work Policy
+Effective Date: January 1, 2026
+
+1. Eligibility
+All full-time employees who have completed their 90-day probationary period are eligible to apply for remote work arrangements. Part-time and contract employees are not eligible under this policy.
+
+2. Work Arrangement Types
+Employees may choose between three arrangements: Fully Remote, Hybrid (minimum 2 office days per week), or Fully On-site. Arrangement changes require manager approval and take effect at the start of the following month.
+
+3. Equipment Stipend
+Approved remote employees receive a one-time equipment stipend of $800 to cover a monitor, chair, and desk. A recurring $50 monthly stipend covers internet costs. Stipends are paid via expense reimbursement within 30 days of a valid receipt submission.
+
+4. Core Hours
+All employees, regardless of arrangement, must be available for core collaboration hours between 10:00 AM and 3:00 PM in their local time zone, Monday through Friday. Outside core hours, employees may set their own schedule as long as they meet their weekly 40-hour commitment.
+
+5. Security Requirements
+Remote employees must use company-issued laptops with full-disk encryption enabled. Personal devices may not be used to access internal systems. All remote work must occur over a WPA3-secured home network or an approved VPN connection.
+
+6. International Remote Work
+Employees wishing to work remotely from a country other than their country of employment must submit a request at least 60 days in advance. Approval depends on tax and legal review and is not guaranteed. International remote work is capped at 90 days per calendar year.
+
+7. Review Period
+Remote work arrangements are reviewed annually each January. Managers may revoke remote status if performance expectations are not met, with a 30-day written notice.
