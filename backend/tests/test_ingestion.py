@@ -37,7 +37,12 @@ async def test_ingest_document_marks_ready_and_creates_chunks(db_session, tmp_pa
     ):
         await service.ingest_document(document_id=doc.id, file_path=str(file_path))
 
-    result = await db_session.execute(select(Document).where(Document.id == doc.id))
+    # populate_existing: ingest_document updates this row via a separate session
+    # (AsyncSessionLocal). Without this, SQLAlchemy's identity map returns doc's
+    # already-loaded (now-stale) attributes instead of re-reading the committed row.
+    result = await db_session.execute(
+        select(Document).where(Document.id == doc.id).execution_options(populate_existing=True)
+    )
     refreshed = result.scalar_one()
     assert refreshed.status == "ready"
     assert refreshed.chunk_count == len(expected_chunks)
@@ -56,6 +61,8 @@ async def test_ingest_document_marks_failed_on_load_error(db_session, tmp_path):
     with pytest.raises(Exception):
         await service.ingest_document(document_id=doc.id, file_path=str(missing_path))
 
-    result = await db_session.execute(select(Document).where(Document.id == doc.id))
+    result = await db_session.execute(
+        select(Document).where(Document.id == doc.id).execution_options(populate_existing=True)
+    )
     refreshed = result.scalar_one()
     assert refreshed.status == "failed"

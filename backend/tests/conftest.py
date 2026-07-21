@@ -15,6 +15,7 @@ import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
+from sqlalchemy.pool import NullPool  # noqa: E402
 
 from app.core.config import settings  # noqa: E402
 from app.core.database import Base, get_db  # noqa: E402
@@ -23,11 +24,12 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture(scope="session")
 def event_loop():
-    # pytest-asyncio 0.23 defaults to a fresh event loop per test function, but
-    # test_engine (below) is session-scoped and holds asyncpg connections bound to
-    # whichever loop created them. Reusing that pool from a later test's new loop
-    # corrupts the connection ("cannot perform operation: another operation is in
-    # progress"). Pinning the loop to session scope keeps them consistent.
+    # pytest-asyncio 0.23 defaults to a fresh event loop per test function. The app's
+    # own module-level engine (app.core.database.engine, used internally by
+    # IngestionService via AsyncSessionLocal) is created once at import time and pools
+    # connections - reusing that pool from a later test's new loop corrupts asyncpg's
+    # connection state ("cannot perform operation: another operation is in progress").
+    # Pinning the loop to session scope keeps every engine on one consistent loop.
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -35,7 +37,12 @@ def event_loop():
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
-    engine = create_async_engine(settings.DATABASE_URL)
+    # NullPool: even within one event loop, SQLAlchemy's greenlet-based async bridge
+    # left pooled asyncpg connections in a corrupted state across fixture teardown
+    # boundaries in this session-scoped-engine + function-scoped-session setup
+    # (same InterfaceError as above). Reproduced and confirmed in isolation - opening
+    # a fresh, unpooled connection per checkout avoids the corruption entirely.
+    engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
