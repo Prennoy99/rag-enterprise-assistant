@@ -24,7 +24,10 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str | None = None
     GEMINI_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     GEMINI_EMBEDDING_DIMENSIONS: int = 1536  # matches the existing vector(1536) column - no migration needed
-    GEMINI_CHAT_MODEL: str = "gemini-2.0-flash"
+    # gemini-2.0-flash has 0 free-tier quota on this account; gemini-3.1-flash-lite
+    # has by far the most generous free allowance of the models actually offered
+    # (confirmed via aistudio.google.com/rate-limit: 15 RPM / 500 RPD).
+    GEMINI_CHAT_MODEL: str = "gemini-3.1-flash-lite"
 
     API_KEY: str
 
