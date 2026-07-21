@@ -7,6 +7,7 @@ os.environ.setdefault(
     "postgresql+asyncpg://raguser:ragpassword@localhost:5432/ragdb_test",
 )
 
+import asyncio  # noqa: E402
 from typing import AsyncGenerator  # noqa: E402
 
 import pytest  # noqa: E402
@@ -18,6 +19,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.config import settings  # noqa: E402
 from app.core.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    # pytest-asyncio 0.23 defaults to a fresh event loop per test function, but
+    # test_engine (below) is session-scoped and holds asyncpg connections bound to
+    # whichever loop created them. Reusing that pool from a later test's new loop
+    # corrupts the connection ("cannot perform operation: another operation is in
+    # progress"). Pinning the loop to session scope keeps them consistent.
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")
