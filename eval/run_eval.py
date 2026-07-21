@@ -71,7 +71,7 @@ def wait_for_ready(client: httpx.Client, doc_id: str) -> None:
     raise TimeoutError(f"document {doc_id} did not become ready within {UPLOAD_TIMEOUT_S}s")
 
 
-def ask(client: httpx.Client, question: str) -> tuple[str, list[str]]:
+def ask(client: httpx.Client, question: str, document_ids: list[str]) -> tuple[str, list[str]]:
     answer_parts = []
     contexts: list[str] = []
     buffer = ""
@@ -79,7 +79,7 @@ def ask(client: httpx.Client, question: str) -> tuple[str, list[str]]:
         "POST",
         f"{API_BASE_URL}/api/v1/query/stream",
         headers=HEADERS,
-        json={"question": question, "document_ids": None},
+        json={"question": question, "document_ids": document_ids},
     ) as response:
         response.raise_for_status()
         for chunk in response.iter_text():
@@ -101,10 +101,34 @@ def ask(client: httpx.Client, question: str) -> tuple[str, list[str]]:
     return "".join(answer_parts), contexts
 
 
+def _patch_gemini_temperature_kwarg(cls):
+    """langchain-google-genai==1.0.10 forwards an unrecognized top-level `temperature`
+    kwarg straight into the raw SDK's generate_content(), which only accepts a
+    `generation_config` dict - raises "unexpected keyword argument 'temperature'".
+    ragas always passes a runtime temperature override when calling the judge LLM, so
+    this folds it into generation_config instead of leaving it to fall through raw.
+    """
+
+    def _generate(self, *args, **kwargs):
+        temperature = kwargs.pop("temperature", None)
+        if temperature is not None:
+            kwargs["generation_config"] = {**(kwargs.get("generation_config") or {}), "temperature": temperature}
+        return cls._generate(self, *args, **kwargs)
+
+    async def _agenerate(self, *args, **kwargs):
+        temperature = kwargs.pop("temperature", None)
+        if temperature is not None:
+            kwargs["generation_config"] = {**(kwargs.get("generation_config") or {}), "temperature": temperature}
+        return await cls._agenerate(self, *args, **kwargs)
+
+    return type(cls.__name__, (cls,), {"_generate": _generate, "_agenerate": _agenerate})
+
+
 def build_judge():
     if LLM_PROVIDER == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
+        ChatGoogleGenerativeAI = _patch_gemini_temperature_kwarg(ChatGoogleGenerativeAI)
         llm = ChatGoogleGenerativeAI(
             model=os.environ.get("GEMINI_CHAT_MODEL", "gemini-3.1-flash-lite"),
             google_api_key=os.environ["GOOGLE_API_KEY"],
@@ -142,7 +166,7 @@ def main():
         print(f"Asking {len(QA_PAIRS)} questions...")
         rows = []
         for i, pair in enumerate(QA_PAIRS, 1):
-            answer, contexts = ask(client, pair["question"])
+            answer, contexts = ask(client, pair["question"], doc_ids)
             rows.append(
                 {
                     "question": pair["question"],
