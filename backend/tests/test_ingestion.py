@@ -30,8 +30,12 @@ async def test_ingest_document_marks_ready_and_creates_chunks(db_session, tmp_pa
     service = IngestionService()
     expected_chunks = service.text_splitter.split_text(file_path.read_text())
 
+    # Patch on the class, not the instance: OpenAIEmbeddings is a Pydantic v1 model,
+    # which rejects setting attributes that aren't declared fields directly on an
+    # instance. Patching type(service.embeddings) instead bypasses that restriction
+    # (attribute lookup falls through to the class) and works for either provider.
     with patch.object(
-        service.embeddings,
+        type(service.embeddings),
         "aembed_documents",
         new=AsyncMock(return_value=[[0.0] * 1536 for _ in expected_chunks]),
     ):
