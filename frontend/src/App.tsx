@@ -18,11 +18,13 @@ export default function App() {
 
   useEffect(() => {
     fetchDocuments()
-    const interval = setInterval(() => {
-      if (documents.some(d => d.status === 'processing')) fetchDocuments()
-    }, 3000)
+  }, [fetchDocuments])
+
+  useEffect(() => {
+    if (!documents.some(d => d.status === 'processing')) return undefined
+    const interval = setInterval(fetchDocuments, 3000)
     return () => clearInterval(interval)
-  }, [fetchDocuments, documents])
+  }, [documents, fetchDocuments])
 
   const handleUploaded = (doc: Document) => {
     setDocuments(prev => [doc, ...prev])
